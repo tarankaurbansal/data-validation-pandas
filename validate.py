@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 # Simulated messy "vendor" price data
 df = pd.DataFrame({
@@ -15,15 +14,21 @@ before = len(df)
 df = df.drop_duplicates()
 
 # Validate
+# IQR method: robust to extreme values, unlike a standard deviation check
+q1, q3 = df["price"].quantile([0.25, 0.75])
+iqr = q3 - q1
+is_outlier = (df["price"] < q1 - 1.5 * iqr) | (df["price"] > q3 + 1.5 * iqr)
+
 issues = {
     "invalid_dates": int(df["date"].isna().sum()),
     "non_positive_prices": int((df["price"] <= 0).sum()),
-    "price_outliers": int(
-        (np.abs(df["price"] - df["price"].median()) > 5 * df["price"].std()).sum()
-    ),
+    "price_outliers": int(is_outlier.sum()),
     "duplicates_removed": before - len(df),
 }
 
+# Keep only valid rows
 clean = df.dropna(subset=["date"]).query("price > 0")
+clean = clean[~is_outlier.loc[clean.index]]
+
 print(issues)
 print(clean)
